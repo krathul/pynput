@@ -325,7 +325,7 @@ class Controller(_base.Controller):
             #Check if the device contains esc and enter key
             #sort of a hack
             #May be improved later on
-            if((all(events in capabilities.keys() for events in self._EVENTS))):
+            if((all(events in capabilities.keys() for events in [ecodes.EV_KEY, ecodes.EV_SYN]))):
                 if(ecodes.KEY_ESC in capabilities[ecodes.EV_KEY] and
                    ecodes.KEY_ENTER in capabilities[ecodes.EV_KEY]):
                     return device
