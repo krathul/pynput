@@ -43,9 +43,7 @@ class ListenerMixin(object):
 
     def __init__(self, *args, **kwargs):
         super(ListenerMixin, self).__init__(*args, **kwargs)
-        self._dev = self._device(self._options.get(
-            'device_paths',
-            evdev.list_devices()))
+        self._dev = self._get_device()
         if self.suppress:
             self._dev.grab()
 
@@ -57,37 +55,15 @@ class ListenerMixin(object):
     def _stop_platform(self):
         self._dev.close()
 
-    def _device(self, paths):
-        """Attempts to load a readable keyboard device.
+    def _get_device(self, paths):
+        """ Device specific implementation
+        Attempts to load a device.
 
         :param paths: A list of paths.
 
         :return: a compatible device
         """
-        dev, count = None, 0
-        for path in paths:
-            # Open the device
-            try:
-                next_dev = evdev.InputDevice(path)
-            except OSError:
-                continue
-
-            # Does this device provide more handled event codes?
-            capabilities = next_dev.capabilities()
-            next_count = sum(
-                len(codes)
-                for event, codes in capabilities.items()
-                if event in self._EVENTS)
-            if next_count > count:
-                dev = next_dev
-                count = next_count
-            else:
-                next_dev.close()
-
-        if dev is None:
-            raise OSError('no keyboard device available')
-        else:
-            return dev
+        raise NotImplementedError()
 
     def _handle(self, event):
         """Handles a single event.

@@ -32,8 +32,12 @@ import re
 import subprocess
 
 import evdev
-
 from evdev.events import KeyEvent
+from evdev import (
+    InputDevice,
+    UInput,
+    ecodes
+)
 
 from pynput._util import xorg_keysyms
 from pynput._util.uinput import ListenerMixin
@@ -63,7 +67,7 @@ class KeyCode(_base.KeyCode):
         :return: a key code
         """
         try:
-            vk = getattr(evdev.ecodes, kernel_name)
+            vk = getattr(ecodes, kernel_name)
         except AttributeError:
             vk = None
         return cls.from_vk(
@@ -304,11 +308,28 @@ class Controller(_base.Controller):
     def __init__(self, *args, **kwargs):
         super(Controller, self).__init__(*args, **kwargs)
         self._layout = LAYOUT
-        self._dev = evdev.UInput()
+        self._dev = UInput.from_device(self._get_device(), name='pynput-keyboard')
 
     def __del__(self):
         if hasattr(self, '_dev'):
             self._dev.close()
+
+    def _get_device(self):
+        device = None
+        for path in evdev.list_devices():
+            try:
+                device = InputDevice(path)
+            except OSError:
+                continue
+            capabilities = device.capabilities()
+            #Check if the device contains esc and enter key
+            #sort of a hack
+            #May be improved later on
+            if((all(events in capabilities.keys() for events in self._EVENTS))):
+                if(ecodes.KEY_ESC in capabilities[ecodes.EV_KEY] and
+                   ecodes.KEY_ENTER in capabilities[ecodes.EV_KEY]):
+                    return device
+            device.close()
 
     def _handle(self, key, is_press):
         # Resolve the key to a virtual key code and a possible set of required
@@ -385,7 +406,8 @@ class Controller(_base.Controller):
 
 class Listener(ListenerMixin, _base.Listener):
     _EVENTS = (
-        evdev.ecodes.EV_KEY,)
+        evdev.ecodes.EV_KEY,
+        evdev.ecodes.EV_SYN)
 
     #: A
     _MODIFIERS = {
@@ -402,6 +424,26 @@ class Listener(ListenerMixin, _base.Listener):
         self._layout = LAYOUT
         self._modifiers = set()
 
+    def _get_device(self):
+        device = None
+        for path in evdev.list_devices():
+            try:
+                device = InputDevice(path)
+            except OSError:
+                continue
+            capabilities = device.capabilities()
+            #Check if the device contains esc and enter key
+            #sort of a hack
+            #May be improved later on
+            if((all(events in capabilities.keys() for events in self._EVENTS))):
+                if(ecodes.KEY_ESC in capabilities[ecodes.EV_KEY] and
+                   ecodes.KEY_ENTER in capabilities[ecodes.EV_KEY]):
+                    return device
+            device.close()
+
+        if device == None:
+            raise Exception("Could not find a valid keyboard device")
+        
     def _handle(self, event):
         is_press = event.value in (KeyEvent.key_down, KeyEvent.key_hold)
         vk = event.code

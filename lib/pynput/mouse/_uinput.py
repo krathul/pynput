@@ -5,6 +5,7 @@ import os
 import re
 import subprocess
 
+import evdev
 from evdev import (
     InputDevice,
     InputEvent,
@@ -30,13 +31,13 @@ class Controller(_base.Controller):
     """
     Takes an argument position getter (couldn't come up with a name), which is the function
     that returns the position of the mouse cursor.
-    A function that queries the compositor for cursor position
+    A function that queries the compositor for cursor position, returns a tuple (x,y)
     """
     def __init__(self, _position_getter = None, *args, **kwargs):
         super(Controller, self).__init__(*args, **kwargs)
         self._position_getter = _position_getter
         if(_position_getter == None):
-            print("position getter is not assigned, position of cursor can't be queried")
+            print("position getter not assigned, absolute position of cursor cannot be set or read")
         #position of mouse is a 32-bit signed integer, hence the minimum position
         self.INT_MIN32 = -2**31
         self._capabilities = {
@@ -63,14 +64,13 @@ class Controller(_base.Controller):
         if self._position_getter == None:
             raise NotImplementedError("Position getter not assigned")
         
-        return self._position_getter
+        return self._position_getter()
 
     def _position_set(self, pos):
+        cur_x,cur_y = self._position_get()
         px, py = self._check_bounds(*pos)
-        self._dev.write(ecodes.EV_REL, ecodes.REL_X, self.INT_MIN32)
-        self._dev.write(ecodes.EV_REL, ecodes.REL_Y, self.INT_MIN32)
-        self._dev.write(ecodes.EV_REL, ecodes.REL_X, px)
-        self._dev.write(ecodes.EV_REL, ecodes.REL_Y, py)
+        self._dev.write(ecodes.EV_REL, ecodes.REL_X, px-cur_x)
+        self._dev.write(ecodes.EV_REL, ecodes.REL_Y, py-cur_y)
         self._dev.syn()
 
     def move(self, dx, dy):
@@ -109,12 +109,39 @@ class Controller(_base.Controller):
 
 
 class Listener(ListenerMixin, _base.Listener):
+    #Current implementation only supports listening for mouse device
+    #Should be improved for supporting touchpad
     _EVENTS = (
         ecodes.EV_KEY,
-        ecodes.EV_REL)
+        ecodes.EV_REL,
+        ecodes.EV_SYN)
 
     def __init__(self, *args, **kwargs):
         super(Listener, self).__init__(*args, **kwargs)
+
+    def _get_device(self):
+        #Only mouse
+        device = None
+        for path in evdev.list_devices():
+            try:
+                temp_device = InputDevice(path)
+            except OSError:
+                continue
+            capabilities = temp_device.capabilities()
+            #Check if the device contains left and right buttons
+            #sort of a hack
+            #May be improved later on
+            if(all(event in capabilities.keys() for event in self._EVENTS)):
+                if(ecodes.BTN_LEFT in capabilities[ecodes.EV_KEY] and
+                   ecodes.BTN_RIGHT in capabilities[ecodes.EV_KEY] and
+                   ecodes.REL_X in capabilities[ecodes.EV_REL] and
+                   ecodes.REL_Y in capabilities[ecodes.EV_REL]):
+                    device = temp_device
+                    break
+            temp_device.close()
+
+        if device == None:
+            raise Exception("Could not find a valid mouse device")
 
     def _handle(self, event : InputEvent):
         if event.type == ecodes.EV_KEY:
