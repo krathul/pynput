@@ -153,6 +153,7 @@ class Layout(object):
     class Key(object):
         """A key in a keyboard layout.
         """
+
         def __init__(self, normal, shifted, alt, alt_shifted):
             self._values = (
                 normal,
@@ -162,11 +163,11 @@ class Layout(object):
 
         def __str__(self):
             return ('<'
-                'normal: {}, '
-                'shifted: {}, '
-                'alternative: {}, '
-                'shifted alternative: {}>').format(
-                    self.normal, self.shifted, self.alt, self.alt_shifted)
+                    'normal: {}, '
+                    'shifted: {}, '
+                    'alternative: {}, '
+                    'shifted alternative: {}>').format(
+                self.normal, self.shifted, self.alt, self.alt_shifted)
 
         __repr__ = __str__
 
@@ -208,8 +209,8 @@ class Layout(object):
             as_char(key): (
                 vk,
                 set()
-                    | {Key.shift} if i & 1 else set()
-                    | {Key.alt_gr} if i & 2 else set())
+                | {Key.shift} if i & 1 else set()
+                | {Key.alt_gr} if i & 2 else set())
             for vk, keys in self._vk_table.items()
             for i, key in enumerate(keys)
             if key is not None and as_char(key) is not None}
@@ -308,7 +309,8 @@ class Controller(_base.Controller):
     def __init__(self, *args, **kwargs):
         super(Controller, self).__init__(*args, **kwargs)
         self._layout = LAYOUT
-        self._dev = UInput.from_device(self._get_device(), name='pynput-keyboard')
+        self._dev = UInput.from_device(
+            self._get_device(), name='pynput-keyboard')
 
     def __del__(self):
         if hasattr(self, '_dev'):
@@ -322,11 +324,11 @@ class Controller(_base.Controller):
             except OSError:
                 continue
             capabilities = device.capabilities()
-            #Check if the device contains esc and enter key
-            #sort of a hack
-            #May be improved later on
-            if((all(events in capabilities.keys() for events in [ecodes.EV_KEY, ecodes.EV_SYN]))):
-                if(ecodes.KEY_ESC in capabilities[ecodes.EV_KEY] and
+            # Check if the device contains esc and enter key
+            # sort of a hack
+            # May be improved later on
+            if ((all(events in capabilities.keys() for events in [ecodes.EV_KEY, ecodes.EV_SYN]))):
+                if (ecodes.KEY_ESC in capabilities[ecodes.EV_KEY] and
                    ecodes.KEY_ENTER in capabilities[ecodes.EV_KEY]):
                     return device
             device.close()
@@ -432,18 +434,18 @@ class Listener(ListenerMixin, _base.Listener):
             except OSError:
                 continue
             capabilities = device.capabilities()
-            #Check if the device contains esc and enter key
-            #sort of a hack
-            #May be improved later on
-            if((all(events in capabilities.keys() for events in self._EVENTS))):
-                if(ecodes.KEY_ESC in capabilities[ecodes.EV_KEY] and
+            # Check if the device contains esc and enter key
+            # sort of a hack
+            # May be improved later on
+            if ((all(events in capabilities.keys() for events in self._EVENTS))):
+                if (ecodes.KEY_ESC in capabilities[ecodes.EV_KEY] and
                    ecodes.KEY_ENTER in capabilities[ecodes.EV_KEY]):
                     return device
             device.close()
 
         if device == None:
             raise Exception("Could not find a valid keyboard device")
-        
+
     def _handle(self, event):
         is_press = event.value in (KeyEvent.key_down, KeyEvent.key_hold)
         vk = event.code

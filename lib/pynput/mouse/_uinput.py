@@ -1,10 +1,4 @@
 import enum
-import errno
-import functools
-import os
-import re
-import subprocess
-
 import evdev
 from evdev import (
     InputDevice,
@@ -27,27 +21,34 @@ Button = enum.Enum(
     ]
 )
 
+
 class Controller(_base.Controller):
     """
-    Takes an argument position getter (couldn't come up with a name), which is the function
-    that returns the position of the mouse cursor.
-    A function that queries the compositor for cursor position, returns a tuple (x,y)
+    Takes an argument position getter (couldn't come up with a name), which
+    is the function that returns the position of the mouse cursor.
+    A function that queries the compositor for cursor position,
+    returns a tuple (x,y)
     """
-    def __init__(self, _position_getter = None, *args, **kwargs):
+
+    def __init__(self, _position_getter=None, *args, **kwargs):
         super(Controller, self).__init__(*args, **kwargs)
         self._position_getter = _position_getter
-        if(_position_getter == None):
-            print("position getter not assigned, absolute position of cursor cannot be set or read")
-        #position of mouse is a 32-bit signed integer, hence the minimum position
+        if (_position_getter is None):
+            print("Position getter not assigned,\
+            absolute position cannot be set or accessed")
+        # position is a 32-bit signed integer, hence the minimum position
         self.INT_MIN32 = -2**31
         self._capabilities = {
-            ecodes.EV_KEY : [ecodes.BTN_LEFT, ecodes.BTN_RIGHT, ecodes.BTN_MIDDLE],
-            ecodes.EV_REL : [
-                             ecodes.REL_X, 
-                             ecodes.REL_Y,
-                             ecodes.REL_WHEEL_HI_RES, 
-                             ecodes.REL_HWHEEL_HI_RES
-                            ]
+            ecodes.EV_KEY: [
+                ecodes.BTN_LEFT,
+                ecodes.BTN_RIGHT,
+                ecodes.BTN_MIDDLE],
+            ecodes.EV_REL: [
+                ecodes.REL_X,
+                ecodes.REL_Y,
+                ecodes.REL_WHEEL_HI_RES,
+                ecodes.REL_HWHEEL_HI_RES
+            ]
         }
         self._dev = UInput(self._capabilities, name='Pynput-Mouse')
 
@@ -57,17 +58,17 @@ class Controller(_base.Controller):
 
     def _position_get(self):
         """
-        libevdev cannot be used to get the position of cursor, 
+        libevdev cannot be used to get the position of cursor,
         On cursor position is known only to the compositor.
-        While using uinput backend, assign _position_getter 
+        While using uinput backend, assign _position_getter
         """
-        if self._position_getter == None:
+        if self._position_getter is None:
             raise NotImplementedError("Position getter not assigned")
-        
+
         return self._position_getter()
 
     def _position_set(self, pos):
-        cur_x,cur_y = self._position_get()
+        cur_x, cur_y = self._position_get()
         px, py = self._check_bounds(*pos)
         self._dev.write(ecodes.EV_REL, ecodes.REL_X, px-cur_x)
         self._dev.write(ecodes.EV_REL, ecodes.REL_Y, py-cur_y)
@@ -86,7 +87,7 @@ class Controller(_base.Controller):
             self._dev.write(ecodes.EV_REL, ecodes.REL_HWHEEL_HI_RES, dx)
         self._dev.syn()
 
-    def _press(self, button : Button):
+    def _press(self, button: Button):
         self._dev.write(ecodes.EV_REL, button.value, 1)
         self._dev.syn()
 
@@ -109,8 +110,9 @@ class Controller(_base.Controller):
 
 
 class Listener(ListenerMixin, _base.Listener):
-    #Current implementation only supports listening for mouse device
-    #Should be improved for supporting touchpad
+    # current implementation only supports listening for mouse device
+    # should be improved for supporting touchpad
+    # Need to be improved with libinput
     _EVENTS = (
         ecodes.EV_KEY,
         ecodes.EV_REL,
@@ -120,7 +122,6 @@ class Listener(ListenerMixin, _base.Listener):
         super(Listener, self).__init__(*args, **kwargs)
 
     def _get_device(self):
-        #Only mouse
         device = None
         for path in evdev.list_devices():
             try:
@@ -128,11 +129,11 @@ class Listener(ListenerMixin, _base.Listener):
             except OSError:
                 continue
             capabilities = temp_device.capabilities()
-            #Check if the device contains left and right buttons
-            #sort of a hack
-            #May be improved later on
-            if(all(event in capabilities.keys() for event in self._EVENTS)):
-                if(ecodes.BTN_LEFT in capabilities[ecodes.EV_KEY] and
+            # Check if the device contains left and right buttons
+            # sort of a hack
+            # May be improved later on
+            if (all(event in capabilities.keys() for event in self._EVENTS)):
+                if (ecodes.BTN_LEFT in capabilities[ecodes.EV_KEY] and
                    ecodes.BTN_RIGHT in capabilities[ecodes.EV_KEY] and
                    ecodes.REL_X in capabilities[ecodes.EV_REL] and
                    ecodes.REL_Y in capabilities[ecodes.EV_REL]):
@@ -140,21 +141,21 @@ class Listener(ListenerMixin, _base.Listener):
                     break
             temp_device.close()
 
-        if device == None:
+        if device is None:
             raise Exception("Could not find a valid mouse device")
 
-    def _handle(self, event : InputEvent):
+    def _handle(self, event: InputEvent):
         if event.type == ecodes.EV_KEY:
             self.on_click(self._button(event.code), event.value)
 
         elif event.type == ecodes.EV_REL:
-            if(event.code == ecodes.REL_X):
+            if (event.code == ecodes.REL_X):
                 self.on_move(event.value, 0)
-            elif(event.code == ecodes.REL_Y):
+            elif (event.code == ecodes.REL_Y):
                 self.on_move(0, event.value)
-            elif(event.code == ecodes.REL_WHEEL_HI_RES):
+            elif (event.code == ecodes.REL_WHEEL_HI_RES):
                 self.on_scroll(0, event.value)
-            elif(event.code == ecodes.REL_HWHEEL_HI_RES):
+            elif (event.code == ecodes.REL_HWHEEL_HI_RES):
                 self.on_scroll(event.value, 0)
 
     # pylint: disable=R0201
