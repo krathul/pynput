@@ -1,5 +1,6 @@
 import enum
 import evdev
+import os
 from evdev import (
     InputDevice,
     InputEvent,
@@ -50,8 +51,11 @@ class Controller(_base.Controller):
                 ecodes.REL_HWHEEL_HI_RES
             ]
         }
-        self._dev = UInput(self._capabilities, name='Pynput-Mouse')
-
+        self.device_name = 'Pynput-Mouse'
+        self._dev = UInput(self._capabilities, name = self.device_name)
+        # path of new device created
+        self.input_device_path = [path for path in evdev.list_devices() if InputDevice(path).name == self.device_name][0]
+        
     def __del__(self):
         if hasattr(self, '_dev'):
             self._dev.close()
