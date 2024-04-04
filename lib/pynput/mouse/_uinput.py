@@ -35,8 +35,7 @@ class Controller(_base.Controller):
         super(Controller, self).__init__(*args, **kwargs)
         self._position_getter = _position_getter
         if (_position_getter is None):
-            print("Position getter not assigned,\
-            absolute position cannot be set or accessed")
+            print("Position getter not assigned, absolute position cannot be set or accessed")
         # position is a 32-bit signed integer, hence the minimum position
         self.INT_MIN32 = -2**31
         self._capabilities = {
@@ -47,15 +46,14 @@ class Controller(_base.Controller):
             ecodes.EV_REL: [
                 ecodes.REL_X,
                 ecodes.REL_Y,
-                ecodes.REL_WHEEL_HI_RES,
-                ecodes.REL_HWHEEL_HI_RES
+                ecodes.REL_WHEEL,
+                ecodes.REL_HWHEEL
             ]
         }
-        self.device_name = 'Pynput-Mouse'
+        self.device_name = 'PynputMouse'
         self._dev = UInput(self._capabilities, name = self.device_name)
-        # path of new device created
-        self.input_device_path = [path for path in evdev.list_devices() if InputDevice(path).name == self.device_name][0]
-        
+
+                
     def __del__(self):
         if hasattr(self, '_dev'):
             self._dev.close()
@@ -126,13 +124,13 @@ class Listener(ListenerMixin, _base.Listener):
         super(Listener, self).__init__(*args, **kwargs)
 
     def _get_device(self):
-        device = None
+        device_path = None
         for path in evdev.list_devices():
             try:
-                temp_device = InputDevice(path)
+                device = InputDevice(path)
             except OSError:
                 continue
-            capabilities = temp_device.capabilities()
+            capabilities = device.capabilities()
             # Check if the device contains left and right buttons
             # sort of a hack
             # May be improved later on
@@ -141,12 +139,16 @@ class Listener(ListenerMixin, _base.Listener):
                    ecodes.BTN_RIGHT in capabilities[ecodes.EV_KEY] and
                    ecodes.REL_X in capabilities[ecodes.EV_REL] and
                    ecodes.REL_Y in capabilities[ecodes.EV_REL]):
-                    device = temp_device
+                    device_path = path
+                    device.close()
                     break
-            temp_device.close()
+            
+            device.close()
 
-        if device is None:
+        if device_path is None:
             raise Exception("Could not find a valid mouse device")
+        
+        return InputDevice(device_path)
 
     def _handle(self, event: InputEvent):
         if event.type == ecodes.EV_KEY:

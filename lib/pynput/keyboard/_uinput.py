@@ -310,14 +310,14 @@ class Controller(_base.Controller):
         super(Controller, self).__init__(*args, **kwargs)
         self._layout = LAYOUT
         self._dev = UInput.from_device(
-            self._get_device(), name='pynput-keyboard')
+            self._get_device(), name='pynputKeyboard')
 
     def __del__(self):
         if hasattr(self, '_dev'):
             self._dev.close()
 
     def _get_device(self):
-        device = None
+        device_path = None
         for path in evdev.list_devices():
             try:
                 device = InputDevice(path)
@@ -330,8 +330,17 @@ class Controller(_base.Controller):
             if ((all(events in capabilities.keys() for events in [ecodes.EV_KEY, ecodes.EV_SYN]))):
                 if (ecodes.KEY_ESC in capabilities[ecodes.EV_KEY] and
                    ecodes.KEY_ENTER in capabilities[ecodes.EV_KEY]):
-                    return device
+                    device_path = path
+                    device.close()
+                    break
+
             device.close()
+        
+        if device_path == None:
+           raise Exception("Could not find a valid keyboard device")
+        
+        return device_path
+        
 
     def _handle(self, key, is_press):
         # Resolve the key to a virtual key code and a possible set of required
@@ -427,7 +436,7 @@ class Listener(ListenerMixin, _base.Listener):
         self._modifiers = set()
 
     def _get_device(self):
-        device = None
+        device_path = None
         for path in evdev.list_devices():
             try:
                 device = InputDevice(path)
@@ -437,14 +446,19 @@ class Listener(ListenerMixin, _base.Listener):
             # Check if the device contains esc and enter key
             # sort of a hack
             # May be improved later on
-            if ((all(events in capabilities.keys() for events in self._EVENTS))):
+            if ((all(events in capabilities.keys() for events in [ecodes.EV_KEY, ecodes.EV_SYN]))):
                 if (ecodes.KEY_ESC in capabilities[ecodes.EV_KEY] and
                    ecodes.KEY_ENTER in capabilities[ecodes.EV_KEY]):
-                    return device
-            device.close()
+                    device_path = path
+                    device.close()
+                    break
 
-        if device == None:
-            raise Exception("Could not find a valid keyboard device")
+            device.close()
+        
+        if device_path == None:
+           raise Exception("Could not find a valid keyboard device")
+
+        return InputDevice(device_path) 
 
     def _handle(self, event):
         is_press = event.value in (KeyEvent.key_down, KeyEvent.key_hold)
