@@ -65,9 +65,6 @@ class Controller(_base.Controller):
         finally:
             if self.input_device_path == None:
                 raise Exception("Could not create a Mouse device")
-        
-        print(self.input_device_path)
-
                 
     def __del__(self):
         if hasattr(self, '_dev'):
