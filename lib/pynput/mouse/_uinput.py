@@ -52,6 +52,21 @@ class Controller(_base.Controller):
         }
         self.device_name = 'PynputMouse'
         self._dev = UInput(self._capabilities, name = self.device_name)
+        self.input_device_path = None
+        
+        try: 
+            self.input_device_path = [path for path in evdev.list_devices() if InputDevice(path).name == self.device_name][0]
+        except:
+            for _file in os.listdir('/dev/input'):
+                if "event" == _file[:5]:
+                    path = os.path.join('/dev/input',_file)
+                    if InputDevice(path).name == self.device_name:
+                        self.input_device_path = path
+        finally:
+            if self.input_device_path == None:
+                raise Exception("Could not create a Mouse device")
+        
+        print(self.input_device_path)
 
                 
     def __del__(self):
